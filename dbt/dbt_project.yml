@@ -1,0 +1,16 @@
+name: sap_o2c
+version: "1.0.0"
+profile: sap_o2c
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+models:
+  sap_o2c:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table

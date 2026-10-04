@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: sap
+    description: SAP order-to-cash extracts, appended by the loader. Every column is text.
+    schema: raw
+    tables:
+      - name: KNA1
+        description: Customer master. No change date; each re-extract is a new version.
+      - name: MARA
+        description: Material master.
+      - name: MAKT
+        description: Material descriptions (one row per material and language).
+      - name: VBAK
+        description: Sales order header.
+      - name: VBAP
+        description: Sales order item. ABGRU set means the item was rejected (cancelled).
+      - name: VBRK
+        description: Billing (invoice) header. FKSTO = 'X' means cancelled.
+      - name: VBRP
+        description: Billing item. AUBEL/AUPOS point to the sales order item billed.

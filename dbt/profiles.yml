@@ -1,0 +1,7 @@
+sap_o2c:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../data/warehouse.duckdb  # relative to this file
+      threads: 4
