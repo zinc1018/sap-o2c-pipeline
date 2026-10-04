@@ -44,14 +44,19 @@ def load_extracts(extracts_dir: Path, db_path: Path) -> LoadResult:
 
 def _load_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> int:
     columns = TABLES[table]
-    with open(path, newline="", encoding="utf-8") as f:
-        header = next(csv.reader(f), [])
+    try:
+        with open(path, newline="", encoding="utf-8") as f:
+            header = next(csv.reader(f), [])
+            f.read()  # decode the whole file so a non-UTF-8 byte fails here, clearly
+    except (UnicodeDecodeError, OSError) as e:
+        raise LoadError(f"{path}: cannot read as UTF-8 text ({e})") from e
     missing, extra = set(columns) - set(header), set(header) - set(columns)
     if missing or extra:
         raise LoadError(f"{path}: missing columns {sorted(missing)}, unexpected {sorted(extra)}")
 
     # Header names are now known-good schema names, safe to place in SQL.
-    # Every column is read as text so SAP values (leading zeros, 00000000) stay exact.
+    # Every column is read as text so SAP values (leading zeros, 00000000) stay exact,
+    # and nullstr is a value that never occurs so empty fields stay '' instead of NULL.
     col_defs = ", ".join(f'"{c}" varchar' for c in columns)
     col_list = ", ".join(f'"{c}"' for c in columns)
     read_spec = "{" + ", ".join(f"'{c}': 'varchar'" for c in header) + "}"
@@ -64,6 +69,7 @@ def _load_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> int:
         (rows,) = con.execute(
             f"insert into raw.{table} select {col_list}, current_timestamp, ? "
             f"from read_csv(?, header = true, delim = ',', quote = '\"', escape = '\"', "
+            f"nullstr = '\\N', "
             f"columns = {read_spec})",
             [path.name, str(path)],
         ).fetchone()

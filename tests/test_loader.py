@@ -92,3 +92,18 @@ def test_cli_reports_counts(extracts, tmp_path, capsys):
     first, second = capsys.readouterr().out.splitlines()
     assert first.startswith("loaded 35 files (") and first.endswith("rows), skipped 0")
     assert second == "loaded 0 files (0 rows), skipped 35"
+
+
+def test_empty_sap_fields_load_as_empty_text_not_null(extracts, tmp_path):
+    db = tmp_path / "w.duckdb"
+    load_extracts(extracts, db)
+    assert q(db, "select count(*) from raw.VBRK where FKSTO is null") == [(0,)]
+    assert q(db, "select count(*) from raw.VBRK where FKSTO = ''")[0][0] > 0
+    assert q(db, "select count(*) from raw.VBAP where ABGRU = ''")[0][0] > 0
+
+
+def test_non_utf8_file_fails_cleanly(extracts, tmp_path):
+    bad = extracts / "KNA1" / "KNA1_20260106.csv"
+    bad.write_bytes(b"MANDT,KUNNR,NAME1,ORT01,REGIO,LAND1,ERDAT\n100,0000000099,M\xfcller,X,Y,US,20260106\n")
+    with pytest.raises(LoadError, match="KNA1_20260106.csv"):
+        load_extracts(extracts, tmp_path / "w.duckdb")

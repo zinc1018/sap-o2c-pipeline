@@ -43,3 +43,22 @@ def test_prints_written_range(tmp_path, capsys):
         f"wrote days 2026-01-01..2026-01-02 to {tmp_path}",
         f"wrote days 2026-01-03..2026-01-03 to {tmp_path}",
     ]
+
+
+def test_interrupted_day_is_regenerated(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    main(["--days", "4", "--out", str(a)])
+    for table in ("VBAP", "VBRK", "VBRP"):  # simulate a run killed partway through day 4
+        (a / table / f"{table}_20260104.csv").unlink()
+    main(["--days", "1", "--out", str(a)])  # day 4 was incomplete, so it is rebuilt
+    main(["--days", "4", "--out", str(b)])
+    assert files(a) == files(b)
+
+
+def test_different_seed_or_start_into_existing_folder_is_rejected(tmp_path, capsys):
+    main(["--days", "2", "--out", str(tmp_path)])
+    before = files(tmp_path)
+    assert main(["--days", "1", "--out", str(tmp_path), "--seed", "7"]) == 1
+    assert main(["--days", "1", "--out", str(tmp_path), "--start", "2026-05-01"]) == 1
+    assert "seed" in capsys.readouterr().err
+    assert files(tmp_path) == before
