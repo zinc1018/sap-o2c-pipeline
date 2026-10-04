@@ -59,3 +59,9 @@ def test_deliberate_issues_present():
     assert any(
         len(e[t]) != len({tuple(r.values()) for r in e[t]}) for _, e in ALL for t in e
     )
+
+
+def test_cancelled_share_is_small():
+    invoices = {r["VBELN"] for r in rows("VBRK")}
+    cancelled = {r["VBELN"] for r in rows("VBRK") if r["FKSTO"] == "X"}
+    assert 0 < len(cancelled) / len(invoices) < 0.08

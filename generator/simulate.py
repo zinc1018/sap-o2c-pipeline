@@ -28,7 +28,7 @@ MATERIAL_GROUPS = ["TRENCHER", "DRILL", "VACUUM", "PARTS"]
 CHANGE_RATE = 0.10  # per open order per day: one item's quantity changes
 REJECT_RATE = 0.03  # per open order per day: one item is rejected (cancelled)
 BILL_RATE = 0.40  # per open order at least 2 days old per day
-CANCEL_RATE = 0.03  # per active invoice per day
+CANCEL_RATE = 0.03  # per invoice: cancelled 1-5 days after billing
 CUSTOMER_CHANGE_RATE = 0.02  # per customer per day: moves city
 DUPLICATE_RATE = 0.01  # per emitted row: written twice
 ORPHAN_RATE = 0.005  # per billing item: references an order that never existed
@@ -52,6 +52,7 @@ def simulate(start: date, days: int, seed: int = 42) -> Iterator[tuple[date, Row
     # VBELN -> {"header": VBAK row, "items": {POSNR: VBAP row}, "created": date, "billed": bool}
     orders: dict[str, dict] = {}
     invoices: dict[str, dict[str, str]] = {}  # VBELN -> current VBRK row
+    cancel_on: dict[str, date] = {}  # VBELN -> day the invoice gets cancelled
     next_order, next_invoice = 1, FIRST_INVOICE
 
     for offset in range(days):
@@ -167,13 +168,15 @@ def simulate(start: date, days: int, seed: int = 42) -> Iterator[tuple[date, Row
                 NETWR=_money(sum(float(i["NETWR"]) for i in billable)),
             )
             out["VBRK"].append(dict(invoices[invoice]))
+            if rng.random() < CANCEL_RATE:
+                cancel_on[invoice] = day + timedelta(days=rng.randint(1, 5))
 
-        for invoice in invoices.values():
-            if not invoice["FKSTO"] and invoice["ERDAT"] != today:
-                if rng.random() < CANCEL_RATE:
-                    invoice["FKSTO"] = "X"
-                    invoice["AEDAT"] = today
-                    out["VBRK"].append(dict(invoice))
+        for vbeln, when in cancel_on.items():
+            if when == day:
+                invoice = invoices[vbeln]
+                invoice["FKSTO"] = "X"
+                invoice["AEDAT"] = today
+                out["VBRK"].append(dict(invoice))
 
         for table, table_rows in out.items():
             out[table] = [
