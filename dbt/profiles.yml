@@ -1,0 +1,9 @@
+# Run dbt from the dbt/ folder (`cd dbt && uv run dbt build`), so the path below
+# resolves to the warehouse the loader writes to.
+sap_o2c:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../data/warehouse.duckdb"
+      threads: 4
