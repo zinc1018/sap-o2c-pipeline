@@ -79,3 +79,45 @@ models:
         tests: [not_null]
       - name: is_orphan_item
         tests: [not_null]
+
+  - name: fct_delivery_items
+    description: Delivery items, one row per delivered order item, linked to the sales order item it ships.
+    columns:
+      - name: delivery_item_key
+        tests: [unique, not_null]
+      - name: delivery_date
+        tests: [not_null]
+      - name: sales_order_item_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_sales_order_items')
+                field: sales_order_item_key
+      - name: shipped_qty
+        tests: [not_null]
+
+  - name: fct_receivable_items
+    description: Customer receivables, one row per accounting item, with status open or cleared.
+    columns:
+      - name: receivable_key
+        tests: [unique, not_null]
+      - name: billing_id
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['open', 'cleared']
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD', 'CAD']

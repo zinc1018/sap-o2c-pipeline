@@ -4,8 +4,9 @@ An end-to-end analytics pipeline over SAP-style order-to-cash data. A Python gen
 simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt models
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
-> **Status:** the generator, loader, dbt staging and marts, and Dagster orchestration are done,
-> and CI runs the whole pipeline on every push. Later work is in the [Roadmap](#roadmap).
+> **Status:** the generator, loader, dbt staging and marts, Dagster orchestration, deliveries,
+> and receivables are done, and CI runs the whole pipeline on every push. Snowflake and failure
+> alerts are in the [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -59,6 +60,8 @@ con.sql("select count(*) from staging.stg_sap__vbak").show()
 | `dim_date` | calendar day | Date attributes for reporting |
 | `fct_sales_order_items` | sales order item | Ordered quantity and value |
 | `fct_billing_items` | billing item | Billed quantity and value, with cancelled and orphaned items flagged |
+| `fct_delivery_items` | delivery item | Quantity shipped against each sales order item, and days from order to delivery |
+| `fct_receivable_items` | accounting item | Customer receivables with status `open` or `cleared`, and days to clear |
 
 Each fact joins to the customer version in effect on its date, so a customer who moved
 is reported under the right location for each order or invoice. Values are kept in document
@@ -132,8 +135,16 @@ nothing from that file is loaded.
 ## What the data looks like
 
 Tables (v1): `KNA1` (customers), `MARA` and `MAKT` (materials and descriptions), `VBAK` and
-`VBAP` (sales order header and item), `VBRK` and `VBRP` (billing header and item). Column order
-and business keys are defined in [`generator/schema.py`](generator/schema.py).
+`VBAP` (sales order header and item), `VBRK` and `VBRP` (billing header and item).
+
+Tables (v2): `LIKP` and `LIPS` (delivery header and item). Deliveries ship part or all of an
+order item's open quantity, and each delivery item points back to the order item it ships.
+
+Tables (v3): `BSID` (open receivables) and `BSAD` (cleared receivables). Each invoice opens a
+receivable with 30-day terms. It clears on payment, usually after a few days, or on cancellation.
+A receivable stays in `BSID` when it's posted, and its cleared version is written to `BSAD`.
+
+Column order and business keys are defined in [`generator/schema.py`](generator/schema.py).
 
 Deliberate issues, so the models have something real to handle:
 
@@ -142,12 +153,19 @@ Deliberate issues, so the models have something real to handle:
 - **Cancelled invoices.** `VBRK.FKSTO = 'X'` marks a cancelled billing document.
 - **Duplicates and orphans.** A few duplicate rows, and some invoice items reference sales order
   items that don't exist.
+- **Orders reduced after shipping.** Some order items are reduced below the quantity already
+  delivered, which SAP would normally block. The `shipped_qty_within_ordered_qty` test warns about
+  these.
 - **Two currencies.** USD and CAD.
 - **Text-typed values.** Dates and amounts are written as text, as in real SAP extracts. Casting
   happens in dbt, not in the loader.
 
 Out of scope for now: pricing conditions (`KONV`), document flow (`VBFA`), partner functions, and
-full multi-currency handling.
+full multi-currency handling. Billing doesn't wait for delivery, so an invoice can come before its
+goods ship.
+
+Extract folders made before v2 and v3 are missing the new tables. Generate new data into a fresh
+`--out` folder rather than adding days to an old one.
 
 ## Design decisions
 
@@ -188,4 +206,5 @@ cd dbt && uv run dbt build   # dbt models and tests
 3. ✅ Marts: star schema with customer SCD2 history
 4. ✅ Dagster orchestration with a daily schedule (per-day backfills not built)
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
-6. Later: deliveries (v2), receivables (v3), a Snowflake target, failure alerts
+6. ✅ Deliveries (v2) and receivables (v3)
+7. Later: a Snowflake target, failure alerts

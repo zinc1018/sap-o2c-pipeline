@@ -19,3 +19,11 @@ sources:
         description: Billing header
       - name: VBRP
         description: Billing item
+      - name: LIKP
+        description: Delivery header
+      - name: LIPS
+        description: Delivery item
+      - name: BSID
+        description: Open customer receivables (accounting document items)
+      - name: BSAD
+        description: Cleared customer receivables
