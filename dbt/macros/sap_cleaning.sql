@@ -8,7 +8,7 @@
 {% macro sap_date(column) -%}
     case
         when trim({{ column }}) in ('', '00000000') then null
-        else strptime(trim({{ column }}), '%Y%m%d')::date
+        else {{ date_from_sap_text(column) }}
     end
 {%- endmacro %}
 
