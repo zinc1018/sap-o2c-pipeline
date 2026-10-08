@@ -75,7 +75,7 @@ Layers: `raw` (loader) → `staging` → `marts`.
 
 | Model | Grain | Notes |
 |---|---|---|
-| `dim_customer` | customer version | SCD type 2 via a dbt snapshot on customer master |
+| `dim_customer` | customer version | SCD type 2 built in SQL from every raw version (a dbt snapshot only captures the state at run time, so one build can't reproduce history) |
 | `dim_material` | material | |
 | `dim_date` | calendar day | |
 | `fct_sales_order_items` | sales order item | ordered quantity and value |
@@ -125,7 +125,7 @@ Run: `uv sync`, then `uv run dagster dev` (UI) or `uv run pipeline` (one headles
 
 1. Repo setup, generator (v1 tables), loader, pytest tests.
 2. dbt staging models and tests.
-3. Marts and SCD2 snapshot.
+3. Marts with SCD2 customer history.
 4. Dagster orchestration and schedule.
 5. CI and README; make the repo public.
 6. Later: deliveries (v2), receivables (v3), Snowflake target, failure alerts.

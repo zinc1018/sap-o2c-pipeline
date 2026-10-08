@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Customer dimension, one row per customer version (SCD type 2). Use valid_from and valid_to to find the version in effect on a given date.
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]
+      - name: valid_to
+        tests: [not_null]
+
+  - name: dim_material
+    description: Material dimension, one row per material.
+    columns:
+      - name: material_id
+        tests: [unique, not_null]
+      - name: material_description
+        tests: [not_null]
+
+  - name: dim_date
+    description: Calendar day dimension.
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: fct_sales_order_items
+    description: Sales order items with ordered quantity and value.
+    columns:
+      - name: sales_order_item_key
+        tests: [unique, not_null]
+      - name: order_date
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: material_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_material')
+                field: material_id
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD', 'CAD']
+
+  - name: fct_billing_items
+    description: Billing items. Cancelled invoices and orphaned items are flagged, not removed.
+    columns:
+      - name: billing_item_key
+        tests: [unique, not_null]
+      - name: billing_date
+        tests: [not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_key
+      - name: material_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_material')
+                field: material_id
+      - name: is_cancelled
+        tests: [not_null]
+      - name: is_orphan_item
+        tests: [not_null]
