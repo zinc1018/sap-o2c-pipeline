@@ -2,6 +2,7 @@ import duckdb
 import pytest
 
 from generator.cli import main as generate
+from generator.schema import TABLES
 from loader.cli import main as load_cli
 from loader.load import LoadError, load_extracts
 
@@ -20,8 +21,8 @@ def q(db, sql):
 def test_loads_every_file_and_row(extracts, tmp_path):
     db = tmp_path / "w.duckdb"
     r = load_extracts(extracts, db)
-    assert r.files_loaded == 35 and r.files_skipped == 0
-    assert q(db, "select count(*) from raw._load_log") == [(35,)]
+    assert r.files_loaded == 5 * len(TABLES) and r.files_skipped == 0
+    assert q(db, "select count(*) from raw._load_log") == [(5 * len(TABLES),)]
     assert q(db, "select count(*) from raw.KNA1")[0][0] >= 50
     assert r.rows_loaded == sum(n for (n,) in q(db, "select row_count from raw._load_log"))
 
@@ -31,7 +32,8 @@ def test_second_run_adds_nothing(extracts, tmp_path):
     load_extracts(extracts, db)
     before = q(db, "select count(*) from raw.VBAP")
     second = load_extracts(extracts, db)
-    assert (second.files_loaded, second.files_skipped, second.rows_loaded) == (0, 35, 0)
+    files = 5 * len(TABLES)
+    assert (second.files_loaded, second.files_skipped, second.rows_loaded) == (0, files, 0)
     assert q(db, "select count(*) from raw.VBAP") == before
 
 
@@ -39,7 +41,7 @@ def test_new_days_load_incrementally(extracts, tmp_path):
     db = tmp_path / "w.duckdb"
     load_extracts(extracts, db)
     generate(["--days", "2", "--out", str(extracts)])
-    assert load_extracts(extracts, db).files_loaded == 14
+    assert load_extracts(extracts, db).files_loaded == 2 * len(TABLES)
 
 
 def test_text_preserved_exactly(extracts, tmp_path):
@@ -90,8 +92,9 @@ def test_cli_reports_counts(extracts, tmp_path, capsys):
     assert load_cli(args) == 0
     assert load_cli(args) == 0
     first, second = capsys.readouterr().out.splitlines()
-    assert first.startswith("loaded 35 files (") and first.endswith("rows), skipped 0")
-    assert second == "loaded 0 files (0 rows), skipped 35"
+    files = 5 * len(TABLES)
+    assert first.startswith(f"loaded {files} files (") and first.endswith("rows), skipped 0")
+    assert second == f"loaded 0 files (0 rows), skipped {files}"
 
 
 def test_empty_sap_fields_load_as_empty_text_not_null(extracts, tmp_path):

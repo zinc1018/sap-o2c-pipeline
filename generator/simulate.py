@@ -33,6 +33,12 @@ CUSTOMER_CHANGE_RATE = 0.02  # per customer per day: moves city
 DUPLICATE_RATE = 0.01  # per emitted row: written twice
 ORPHAN_RATE = 0.005  # per billing item: references an order that never existed
 FIRST_INVOICE = 90_000_001
+DELIVERY_RATE = 0.35  # per order with unshipped quantity: a delivery goes out on a day
+PAYMENT_RATE = 0.12  # per open receivable per day, from 3 days after billing
+PAYMENT_TERMS = "NT30"  # net 30 days
+COMPANY_CODE = "1000"
+FIRST_FI_DOC = 1_900_000_001
+V1_TABLES = ("KNA1", "MARA", "MAKT", "VBAK", "VBAP", "VBRK", "VBRP")
 
 Rows = dict[str, list[dict[str, str]]]
 
@@ -54,6 +60,13 @@ def simulate(start: date, days: int, seed: int = 42) -> Iterator[tuple[date, Row
     invoices: dict[str, dict[str, str]] = {}  # VBELN -> current VBRK row
     cancel_on: dict[str, date] = {}  # VBELN -> day the invoice gets cancelled
     next_order, next_invoice = 1, FIRST_INVOICE
+    # v2 and v3 use their own random streams, so adding them leaves v1 output unchanged.
+    delivery_rng = random.Random(f"{seed}-deliveries")
+    ar_rng = random.Random(f"{seed}-receivables")
+    delivered: dict[tuple[str, str], int] = {}  # (VBELN, POSNR) -> quantity shipped so far
+    next_delivery = 1
+    next_fi = FIRST_FI_DOC
+    open_ar: dict[str, tuple[dict[str, str], date]] = {}  # invoice VBELN -> (BSID row, posted)
 
     for offset in range(days):
         day = start + timedelta(days=offset)
@@ -178,10 +191,68 @@ def simulate(start: date, days: int, seed: int = 42) -> Iterator[tuple[date, Row
                 invoice["AEDAT"] = today
                 out["VBRK"].append(dict(invoice))
 
+        # v2: part or all of an order's unshipped quantity ships.
+        for vbeln, order in orders.items():
+            if order["created"] == day:
+                continue
+            open_items = [
+                i for i in order["items"].values()
+                if not i["ABGRU"] and int(i["KWMENG"]) > delivered.get((vbeln, i["POSNR"]), 0)
+            ]
+            if not open_items or delivery_rng.random() >= DELIVERY_RATE:
+                continue
+            delivery = f"{next_delivery:010d}"
+            next_delivery += 1
+            out["LIKP"].append(_row(
+                "LIKP", MANDT=MANDT, VBELN=delivery, LFART="LF", ERDAT=today, LFDAT=today,
+                KUNNR=order["header"]["KUNNR"], AEDAT=INITIAL_DATE,
+            ))
+            for n, item in enumerate(open_items, start=1):
+                key = (vbeln, item["POSNR"])
+                left = int(item["KWMENG"]) - delivered.get(key, 0)
+                qty = delivery_rng.randint(1, left)
+                delivered[key] = delivered.get(key, 0) + qty
+                out["LIPS"].append(_row(
+                    "LIPS", MANDT=MANDT, VBELN=delivery, POSNR=f"{n * 10:06d}", VGBEL=vbeln,
+                    VGPOS=item["POSNR"], MATNR=item["MATNR"], LFIMG=str(qty),
+                    VRKME=item["VRKME"], ERDAT=today, AEDAT=INITIAL_DATE,
+                ))
+
+        # v3: each new invoice opens a receivable; it clears on payment, or on cancellation.
+        for vbeln, invoice in invoices.items():
+            if invoice["FKDAT"] == today:
+                fi_doc = f"{next_fi:010d}"
+                next_fi += 1
+                item = _row(
+                    "BSID", MANDT=MANDT, BUKRS=COMPANY_CODE, BELNR=fi_doc, GJAHR=day.strftime("%Y"),
+                    BUZEI="001", KUNNR=invoice["KUNRG"], BLART="RV", BUDAT=today,
+                    FAEDT=(day + timedelta(days=30)).strftime("%Y%m%d"), ZFBDT=today,
+                    ZTERM=PAYMENT_TERMS, WRBTR=invoice["NETWR"], WAERS=invoice["WAERK"],
+                    ZUONR=vbeln,
+                )
+                open_ar[vbeln] = (item, day)
+                out["BSID"].append(dict(item))
+
+        for vbeln, (item, posted) in list(open_ar.items()):
+            cancelled = invoices[vbeln]["FKSTO"] == "X"
+            if not cancelled:
+                if (day - posted).days < 3 or ar_rng.random() >= PAYMENT_RATE:
+                    continue
+            clearing = f"{next_fi:010d}"
+            next_fi += 1
+            out["BSAD"].append(dict(item, AUGDT=today, AUGBL=clearing))
+            del open_ar[vbeln]
+
+        streams = {
+            **{table: rng for table in V1_TABLES},
+            "LIKP": delivery_rng, "LIPS": delivery_rng,
+            "BSID": ar_rng, "BSAD": ar_rng,
+        }
         for table, table_rows in out.items():
+            table_rng = streams[table]
             out[table] = [
                 r for row in table_rows
-                for r in ([row, dict(row)] if rng.random() < DUPLICATE_RATE else [row])
+                for r in ([row, dict(row)] if table_rng.random() < DUPLICATE_RATE else [row])
             ]
 
         yield day, out

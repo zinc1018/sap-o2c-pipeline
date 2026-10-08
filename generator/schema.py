@@ -20,6 +20,22 @@ TABLES: dict[str, tuple[str, ...]] = {
         "MANDT", "VBELN", "POSNR", "AUBEL", "AUPOS", "MATNR", "FKIMG",
         "VRKME", "NETWR", "ERDAT", "AEDAT",
     ),
+    # v2: delivery header / item (LFART = delivery type, VGBEL/VGPOS = sales order item shipped)
+    "LIKP": ("MANDT", "VBELN", "LFART", "ERDAT", "LFDAT", "KUNNR", "AEDAT"),
+    "LIPS": (
+        "MANDT", "VBELN", "POSNR", "VGBEL", "VGPOS", "MATNR",
+        "LFIMG", "VRKME", "ERDAT", "AEDAT",
+    ),
+    # v3: open and cleared customer receivables (accounting document items).
+    # BSID holds items when posted; BSAD holds them once cleared (AUGDT/AUGBL).
+    "BSID": (
+        "MANDT", "BUKRS", "BELNR", "GJAHR", "BUZEI", "KUNNR", "BLART", "BUDAT",
+        "FAEDT", "ZFBDT", "ZTERM", "WRBTR", "WAERS", "ZUONR",
+    ),
+    "BSAD": (
+        "MANDT", "BUKRS", "BELNR", "GJAHR", "BUZEI", "KUNNR", "BLART", "BUDAT",
+        "FAEDT", "ZFBDT", "ZTERM", "WRBTR", "WAERS", "ZUONR", "AUGDT", "AUGBL",
+    ),
 }
 
 KEYS: dict[str, tuple[str, ...]] = {
@@ -30,4 +46,8 @@ KEYS: dict[str, tuple[str, ...]] = {
     "VBAP": ("VBELN", "POSNR"),
     "VBRK": ("VBELN",),
     "VBRP": ("VBELN", "POSNR"),
+    "LIKP": ("VBELN",),
+    "LIPS": ("VBELN", "POSNR"),
+    "BSID": ("BUKRS", "BELNR", "GJAHR", "BUZEI"),
+    "BSAD": ("BUKRS", "BELNR", "GJAHR", "BUZEI"),
 }

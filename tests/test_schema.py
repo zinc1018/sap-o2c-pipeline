@@ -1,8 +1,12 @@
 from generator.schema import KEYS, TABLES
 
 
-def test_v1_tables():
-    assert set(TABLES) == {"KNA1", "MARA", "MAKT", "VBAK", "VBAP", "VBRK", "VBRP"}
+def test_v1_tables_present():
+    assert {"KNA1", "MARA", "MAKT", "VBAK", "VBAP", "VBRK", "VBRP"} <= set(TABLES)
+
+
+def test_v2_and_v3_tables_present():
+    assert {"LIKP", "LIPS", "BSID", "BSAD"} <= set(TABLES)
 
 
 def test_every_table_starts_with_client():
