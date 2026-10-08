@@ -4,8 +4,8 @@ An end-to-end analytics pipeline over SAP-style order-to-cash data. A Python gen
 simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt models
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
-> **Status:** the generator, loader, and dbt staging layer are done, and CI runs the whole
-> pipeline on every push. Marts, orchestration, and the rest are in progress. See [Roadmap](#roadmap).
+> **Status:** the generator, loader, dbt staging layer, and marts are done, and CI runs the whole
+> pipeline on every push. Orchestration and the rest are in progress. See [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -27,9 +27,9 @@ uv run pytest                            # run the test suite
 ```
 
 dbt runs from the `dbt/` folder so its profile finds the warehouse at `data/warehouse.duckdb`.
-`dbt build` reports one known warning: 13 billing items reference sales order items that don't
-exist in the source data. The warning is intentional and documented in
-[`dbt/models/staging/schema.yml`](dbt/models/staging/schema.yml).
+`dbt build` reports one known warning: some billing items reference sales order items that don't
+exist in the source data. The count depends on how much data was generated. The warning is
+intentional and documented in [`dbt/models/staging/schema.yml`](dbt/models/staging/schema.yml).
 
 Output goes to `data/` (git-ignored):
 
@@ -44,6 +44,30 @@ con = duckdb.connect("data/warehouse.duckdb", read_only=True)
 con.sql("select count(*) from raw.VBAK").show()
 con.sql("select count(*) from staging.stg_sap__vbak").show()
 ```
+
+### Marts
+
+`dbt/models/marts/` is a star schema for order-to-cash analysis:
+
+| Model | Grain | What it's for |
+|---|---|---|
+| `dim_customer` | customer version | Customer attributes as they were on a given date (SCD type 2) |
+| `dim_material` | material | Material description and type |
+| `dim_date` | calendar day | Date attributes for reporting |
+| `fct_sales_order_items` | sales order item | Ordered quantity and value |
+| `fct_billing_items` | billing item | Billed quantity and value, with cancelled and orphaned items flagged |
+
+Each fact joins to the customer version in effect on its date, so a customer who moved
+is reported under the right location for each order or invoice. Values are kept in document
+currency, and `net_value_usd` uses the rates in `dbt/seeds/exchange_rates.csv`. Those rates are
+illustrative fixed values for this project, not market data.
+
+Customer history is built in SQL from every version in raw, not with a dbt snapshot. A snapshot
+only records the state at the time it runs, so one build over this history would keep only the
+latest version of each customer.
+
+Tests check keys, relationships between facts and dimensions, and two business rules: billed
+quantity never exceeds ordered quantity, and rejected order items are never billed.
 
 ### Staging models
 
@@ -118,7 +142,7 @@ The full design is in [`docs/design.md`](docs/design.md). The short version:
 ```
 generator/   simulated SAP system: schema, simulation, `generate` CLI
 loader/      CSV → DuckDB raw tables, `load` CLI
-dbt/         dbt project: staging models, macros, sources, tests
+dbt/         dbt project: staging and marts models, seeds, macros, tests
 tests/       pytest suite for the generator and loader
 docs/        design doc and milestone plans
 ```
@@ -135,7 +159,7 @@ cd dbt && uv run dbt build   # dbt models and tests
 
 1. ✅ Generator (v1 tables), loader, pytest tests
 2. ✅ dbt staging models and tests
-3. Marts and an SCD2 snapshot
+3. ✅ Marts: star schema with customer SCD2 history
 4. Dagster orchestration and schedule
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. Later: deliveries (v2), receivables (v3), a Snowflake target, failure alerts
