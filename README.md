@@ -5,8 +5,8 @@ simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
 > **Status:** the generator, loader, dbt staging and marts, Dagster orchestration, deliveries,
-> receivables, and failure alerts are done, and CI runs the whole pipeline on every push. A
-> Snowflake target is in the [Roadmap](#roadmap).
+> receivables, and failure alerts are done, and CI runs the whole pipeline on every push. The
+> project runs locally with no cloud accounts. See the [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -212,4 +212,5 @@ cd dbt && uv run dbt build   # dbt models and tests
 4. ✅ Dagster orchestration with a daily schedule (per-day backfills not built)
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. ✅ Deliveries (v2) and receivables (v3)
-7. Later: a Snowflake target
+7. Optional, deferred: a Snowflake target. It needs a cloud account, so it's not part of the
+   local-first build.
