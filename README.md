@@ -32,9 +32,11 @@ To run generate, load, and dbt build as one step, use `uv run pipeline --days 30
 step's progress and stops at the first failure.
 
 dbt runs from the `dbt/` folder so its profile finds the warehouse at `data/warehouse.duckdb`.
-`dbt build` reports one known warning: some billing items reference sales order items that don't
-exist in the source data. The count depends on how much data was generated. The warning is
-intentional and documented in [`dbt/models/staging/schema.yml`](dbt/models/staging/schema.yml).
+`dbt build` reports two known warnings: some billing items reference sales order items that don't
+exist in the source data, and some orders are reduced below quantities already shipped. The counts
+depend on how much data was generated. Both warnings are intentional and documented in
+[`dbt/models/staging/schema.yml`](dbt/models/staging/schema.yml) and
+[`dbt/tests/shipped_qty_within_ordered_qty.sql`](dbt/tests/shipped_qty_within_ordered_qty.sql).
 
 Output goes to `data/` (git-ignored):
 
