@@ -36,18 +36,18 @@
 **Interfaces:**
 - Produces: `generator.schema.TABLES: dict[str, tuple[str, ...]]` (table → ordered column names) and `generator.schema.KEYS: dict[str, tuple[str, ...]]` (table → business-key columns).
 
-- [ ] **Step 1: Install uv** (user-level, no admin rights)
+- [x] **Step 1: Install uv** (user-level, no admin rights)
 
 Run: `curl -LsSf https://astral.sh/uv/install.sh | sh` then `uv --version`
 Expected: prints a version.
 
-- [ ] **Step 2: Create `pyproject.toml`**
+- [x] **Step 2: Create `pyproject.toml`**
 
 Project name `sap-o2c-pipeline`, `requires-python = ">=3.12"`, dependency `duckdb`, dev group `pytest`, `ruff`. Build backend `hatchling` with packages `generator` and `loader`. Scripts: `generate = "generator.cli:main"`, `load = "loader.cli:main"`. Ruff: `line-length = 100`, `select = ["E", "F", "I", "B", "UP"]`. Pytest: `testpaths = ["tests"]`.
 
 `.gitignore`: `data/`, `.venv/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`.
 
-- [ ] **Step 3: Write the failing test** in `tests/test_schema.py`
+- [x] **Step 3: Write the failing test** in `tests/test_schema.py`
 
 ```python
 from generator.schema import KEYS, TABLES
@@ -69,12 +69,12 @@ def test_change_date_columns():
     assert "AEDAT" not in TABLES["KNA1"]  # real KNA1 has no change date
 ```
 
-- [ ] **Step 4: Run to verify it fails**
+- [x] **Step 4: Run to verify it fails**
 
 Run: `uv run pytest tests/test_schema.py -v`
 Expected: FAIL, `ModuleNotFoundError: generator.schema`.
 
-- [ ] **Step 5: Implement `generator/schema.py`** with exactly these columns and keys:
+- [x] **Step 5: Implement `generator/schema.py`** with exactly these columns and keys:
 
 | Table | Columns (in order) | Key |
 |---|---|---|
@@ -88,12 +88,12 @@ Expected: FAIL, `ModuleNotFoundError: generator.schema`.
 
 `ABGRU` (rejection reason) on VBAP is how an order item is cancelled; `AUBEL`/`AUPOS` on VBRP reference the sales order item.
 
-- [ ] **Step 6: Run tests and lint**
+- [x] **Step 6: Run tests and lint**
 
 Run: `uv run pytest -v && uv run ruff check .`
 Expected: 4 passed; ruff reports no errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add pyproject.toml uv.lock .gitignore generator loader tests
@@ -116,7 +116,7 @@ Behavior for this task (one `random.Random(seed)` consumed in day order — the 
 - Day 1 only: 50 customers (80% `LAND1=US`/`WAERK` USD, 20% `CA`/CAD), 30 materials (each with a fixed unit price between 10.00 and 500.00, `MEINS=EA`, one `MAKT` row with `SPRAS=E`). At least one customer `NAME1` contains a comma and a double quote.
 - Every day: `randint(5, 15)` new orders, each with `randint(1, 4)` items numbered `000010`, `000020`, …; `VBELN` sequential from `0000000001`; order `WAERK` = customer currency; item `NETWR` = qty × unit price; header `NETWR` = sum of items; new records have `AEDAT=00000000` and `ABGRU=""`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from datetime import date
@@ -159,19 +159,19 @@ def test_orders_link_and_sum():
         assert h["AEDAT"] == "00000000"
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `uv run pytest tests/test_simulate_orders.py -v`
 Expected: FAIL, `ModuleNotFoundError: generator.simulate`.
 
-- [ ] **Step 3: Implement `simulate`** in `generator/simulate.py` per the behavior above. Keep simulation state (customers, materials, open orders) in plain dicts inside the function; format values to text only when emitting rows.
+- [x] **Step 3: Implement `simulate`** in `generator/simulate.py` per the behavior above. Keep simulation state (customers, materials, open orders) in plain dicts inside the function; format values to text only when emitting rows.
 
-- [ ] **Step 4: Run tests and lint**
+- [x] **Step 4: Run tests and lint**
 
 Run: `uv run pytest -v && uv run ruff check .`
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add generator/simulate.py tests/test_simulate_orders.py
@@ -196,7 +196,7 @@ Behavior added (applied each day after new orders, in this order):
 4. **Cancellations:** each active invoice, with `CANCEL_RATE`, gets `FKSTO="X"` and `AEDAT` = today; the VBRK row is re-emitted.
 5. **Deliberate issues:** with `ORPHAN_RATE` per new billing item, `AUBEL` points to an order number never created; with `DUPLICATE_RATE` per emitted row (any table), the row is emitted twice in the same day.
 
-- [ ] **Step 1: Write the failing tests** (60 simulated days, seed 42)
+- [x] **Step 1: Write the failing tests** (60 simulated days, seed 42)
 
 ```python
 from datetime import date
@@ -236,19 +236,19 @@ def test_deliberate_issues_present():
                for _, e in ALL for t in e)
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `uv run pytest tests/test_simulate_billing.py -v`
 Expected: FAIL (no billing rows yet).
 
-- [ ] **Step 3: Implement the behavior above** in `generator/simulate.py`.
+- [x] **Step 3: Implement the behavior above** in `generator/simulate.py`.
 
-- [ ] **Step 4: Run all tests and lint**
+- [x] **Step 4: Run all tests and lint**
 
 Run: `uv run pytest -v && uv run ruff check .`
 Expected: all pass, including Task 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add generator/simulate.py tests/test_simulate_billing.py
@@ -269,7 +269,7 @@ git commit -m "feat: simulate order changes, billing, cancellations and data iss
 
 Behavior: count existing days as the number of `KNA1_*.csv` files in `<out>/KNA1`; simulate `existing + N` days from `--start`; write only the days after the existing ones. Every table gets a file every day (header-only when empty). Prints `wrote days <first>..<last> to <out>`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import csv
@@ -303,19 +303,19 @@ def test_name_with_comma_and_quote_round_trips(tmp_path):
     assert any("," in n and '"' in n for n in names)
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `uv run pytest tests/test_generator_cli.py -v`
 Expected: FAIL, `ModuleNotFoundError: generator.cli`.
 
-- [ ] **Step 3: Implement `main`** in `generator/cli.py` with `argparse`.
+- [x] **Step 3: Implement `main`** in `generator/cli.py` with `argparse`.
 
-- [ ] **Step 4: Run all tests, lint, and a manual run**
+- [x] **Step 4: Run all tests, lint, and a manual run**
 
 Run: `uv run pytest -v && uv run ruff check . && uv run generate --days 3 && ls data/extracts/VBAK`
 Expected: all pass; prints `wrote days 2026-01-01..2026-01-03 to data/extracts`; lists 3 VBAK files.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add generator/cli.py tests/test_generator_cli.py
@@ -343,7 +343,7 @@ Behavior:
 - For each table in `TABLES`, each `<TABLE>/*.csv` in sorted order: skip if `file_name` is in `_load_log`; otherwise, in one transaction: read the header line with the `csv` module and require its column set to equal `TABLES[table]` (else `LoadError` naming missing/extra columns); read the data with `read_csv(path, header=true, columns={col: 'VARCHAR' for col in header})` so nothing is type-guessed and header-only files work; create `raw.<TABLE>` if absent (all `VARCHAR` columns in schema order, plus `_loaded_at TIMESTAMP`, `_source_file VARCHAR`), insert rows with `current_timestamp` and the file name, insert the log row. Any error rolls back that file and raises `LoadError(f"{path}: {problem}")`. Files loaded earlier in the run stay committed.
 - Header-only CSVs: load 0 rows, still logged.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 import duckdb, pytest
@@ -408,19 +408,19 @@ def test_cli_missing_folder_exits_1(tmp_path, capsys):
     assert "nope" in capsys.readouterr().err
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `uv run pytest tests/test_loader.py -v`
 Expected: FAIL, `ModuleNotFoundError: loader.load`.
 
-- [ ] **Step 3: Implement `load_extracts`, `LoadError`, `LoadResult`** in `loader/load.py` and `main` in `loader/cli.py`, per the behavior above. Build table names only from `TABLES` keys, never from file names.
+- [x] **Step 3: Implement `load_extracts`, `LoadError`, `LoadResult`** in `loader/load.py` and `main` in `loader/cli.py`, per the behavior above. Build table names only from `TABLES` keys, never from file names.
 
-- [ ] **Step 4: Run all tests, lint, and the end-to-end manual check**
+- [x] **Step 4: Run all tests, lint, and the end-to-end manual check**
 
 Run: `uv run pytest -v && uv run ruff check . && rm -rf data && uv run generate --days 30 && uv run load && uv run load`
 Expected: all tests pass; first `load` prints `loaded 210 files (… rows), skipped 0`; second prints `loaded 0 files (0 rows), skipped 210`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add loader tests/test_loader.py
