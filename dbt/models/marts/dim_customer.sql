@@ -12,7 +12,7 @@ with versions as (
         {{ sap_text('ORT01') }} as city,
         {{ sap_text('REGIO') }} as region,
         {{ sap_text('LAND1') }} as country_code,
-        strptime(regexp_extract(_source_file, '[0-9]{8}'), '%Y%m%d')::date as valid_from,
+        {{ date_from_file_name('_source_file') }} as valid_from,
         _loaded_at,
         coalesce({{ sap_text('NAME1') }}, '') || '|' || coalesce({{ sap_text('ORT01') }}, '')
             || '|' || coalesce({{ sap_text('REGIO') }}, '')
@@ -67,7 +67,7 @@ select
     country_code,
     valid_from,
     coalesce(
-        lead(valid_from) over (partition by customer_id order by valid_from) - 1,
+        {{ add_days('lead(valid_from) over (partition by customer_id order by valid_from)', -1) }},
         date '9999-12-31'
     ) as valid_to,
     lead(valid_from) over (partition by customer_id order by valid_from) is null as is_current

@@ -6,7 +6,8 @@ them into a star schema. The whole thing runs locally with no cloud accounts or 
 
 > **Status:** the generator, loader, dbt staging and marts, Dagster orchestration, deliveries,
 > receivables, and failure alerts are done, and CI runs the whole pipeline on every push. The
-> project runs locally with no cloud accounts. See the [Roadmap](#roadmap).
+> default run is local with no cloud accounts. A Snowflake target is built but
+> [not yet verified against a live account](#snowflake-target-unverified).
 
 ## Why this exists
 
@@ -172,6 +173,37 @@ goods ship.
 Extract folders made before v2 and v3 are missing the new tables. Generate new data into a fresh
 `--out` folder rather than adding days to an old one.
 
+## Snowflake target (unverified)
+
+The same pipeline can load into Snowflake instead of DuckDB. This path is built, but it has not
+been run against a live Snowflake account. The tests use a fake connection. Treat the first real
+run as a check, not a demo.
+
+Set the connection variables, then run with the Snowflake group installed:
+
+```bash
+export SNOWFLAKE_ACCOUNT=orgname-accountname   # account identifier
+export SNOWFLAKE_USER=...
+export SNOWFLAKE_PASSWORD=...                  # read from the environment; never commit it
+export SNOWFLAKE_DATABASE=...
+export SNOWFLAKE_WAREHOUSE=...
+export SNOWFLAKE_ROLE=...                      # optional
+
+SAP_TARGET=snowflake uv run --group snowflake pipeline --days 30
+```
+
+The `--group snowflake` flag is needed every time. Without it, `uv run` removes the Snowflake
+packages, because they aren't part of the default install.
+
+The loader creates a `RAW` schema, one table per SAP table with text columns, and a load log. It
+uploads each file to the user stage and runs `COPY INTO`. dbt builds into `STAGING` and `MARTS`
+schemas in the same database. The DuckDB macros in `dbt/macros/warehouse.sql` have Snowflake
+equivalents, and `dbt parse` accepts the Snowflake target. Compiling or running it needs a live
+login.
+
+Known risks to check on the first run: the role needs to create schemas and tables, `PUT` needs
+access to the user stage, and the generated SQL has not been run.
+
 ## Design decisions
 
 The full design is in [`docs/design.md`](docs/design.md). The short version:
@@ -212,5 +244,4 @@ cd dbt && uv run dbt build   # dbt models and tests
 4. ✅ Dagster orchestration with a daily schedule (per-day backfills not built)
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. ✅ Deliveries (v2) and receivables (v3)
-7. Optional, deferred: a Snowflake target. It needs a cloud account, so it's not part of the
-   local-first build.
+7. ✅ Snowflake target: built, not verified against a live account (see above).

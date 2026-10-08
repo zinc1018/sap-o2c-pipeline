@@ -16,8 +16,7 @@ with bounds as (
 
 days as (
 
-    select cast(unnest(generate_series(first_day, last_day, interval 1 day)) as date) as date_day
-    from bounds
+    {{ date_spine('(select first_day from bounds)', '(select last_day from bounds)') }}
 
 )
 
@@ -26,7 +25,7 @@ select
     year(date_day) as year,
     quarter(date_day) as quarter,
     month(date_day) as month_number,
-    monthname(date_day) as month_name,
-    dayname(date_day) as day_name,
-    isodow(date_day) in (6, 7) as is_weekend
+    {{ month_name('date_day') }} as month_name,
+    {{ day_name('date_day') }} as day_name,
+    {{ is_weekend('date_day') }} as is_weekend
 from days

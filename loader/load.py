@@ -1,16 +1,12 @@
 """Append SAP extract CSVs into DuckDB `raw` tables, one transaction per file."""
 
-import csv
 from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
 
 from generator.schema import TABLES
-
-
-class LoadError(Exception):
-    """A file or folder could not be loaded; the message starts with its path."""
+from loader.checks import LoadError, read_header
 
 
 @dataclass
@@ -44,15 +40,7 @@ def load_extracts(extracts_dir: Path, db_path: Path) -> LoadResult:
 
 def _load_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> int:
     columns = TABLES[table]
-    try:
-        with open(path, newline="", encoding="utf-8") as f:
-            header = next(csv.reader(f), [])
-            f.read()  # decode the whole file so a non-UTF-8 byte fails here, clearly
-    except (UnicodeDecodeError, OSError) as e:
-        raise LoadError(f"{path}: cannot read as UTF-8 text ({e})") from e
-    missing, extra = set(columns) - set(header), set(header) - set(columns)
-    if missing or extra:
-        raise LoadError(f"{path}: missing columns {sorted(missing)}, unexpected {sorted(extra)}")
+    header = read_header(path, table)
 
     # Header names are now known-good schema names, safe to place in SQL.
     # Every column is read as text so SAP values (leading zeros, 00000000) stay exact,

@@ -14,7 +14,7 @@ select
     d.shipped_qty,
     d.sales_unit,
     o.order_date,
-    h.delivery_date - o.order_date as days_order_to_delivery
+    {{ days_between('h.delivery_date', 'o.order_date') }} as days_order_to_delivery
 from {{ ref('stg_sap__lips') }} as d
 join {{ ref('stg_sap__likp') }} as h
     on h.delivery_id = d.delivery_id
