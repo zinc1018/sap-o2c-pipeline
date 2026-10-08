@@ -5,8 +5,8 @@ simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
 > **Status:** the generator, loader, dbt staging and marts, Dagster orchestration, deliveries,
-> and receivables are done, and CI runs the whole pipeline on every push. Snowflake and failure
-> alerts are in the [Roadmap](#roadmap).
+> receivables, and failure alerts are done, and CI runs the whole pipeline on every push. A
+> Snowflake target is in the [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -104,6 +104,11 @@ already-loaded files are skipped.
 uv run dagster dev -m orchestration.definitions   # UI at http://localhost:3000
 uv run pipeline --days 30                          # one headless run, no UI
 ```
+
+Failed runs send an email to `ALERT_TO`, listing the failed steps and their errors. Set these
+environment variables to turn alerts on: `ALERT_SMTP_HOST`, `ALERT_FROM`, `ALERT_TO`, and
+optionally `ALERT_SMTP_PORT` (default 587), `ALERT_SMTP_USER`, and `ALERT_SMTP_PASSWORD`. Without
+them, failures are only logged. Sending uses STARTTLS.
 
 Not built yet: per-day backfills. The generator only adds days after the last one, so there is
 no way yet to fill a past date range.
@@ -207,4 +212,4 @@ cd dbt && uv run dbt build   # dbt models and tests
 4. ✅ Dagster orchestration with a daily schedule (per-day backfills not built)
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. ✅ Deliveries (v2) and receivables (v3)
-7. Later: a Snowflake target, failure alerts
+7. Later: a Snowflake target

@@ -98,7 +98,7 @@ Out of scope for v1: an intermediate layer (added only if a model grows too comp
 - Assets: `generate` → `load_raw` → dbt models (via dagster-dbt, one asset per model).
 - Daily schedule, retries on failure, backfills by day.
 - Local UI via `dagster dev`.
-- Failure alerts (email) deferred to a later milestone.
+- Failure alerts: an email with the failed steps and errors when a run fails (configured by environment variables).
 
 ### Python tests (`tests/`, pytest)
 - Generator: same seed gives identical output; foreign keys between tables resolve (except the deliberate bad rows); the deliberate issues are present.
@@ -128,4 +128,4 @@ Run: `uv sync`, then `uv run dagster dev` (UI) or `uv run pipeline` (one headles
 3. Marts with SCD2 customer history.
 4. Dagster orchestration and schedule.
 5. CI and README; make the repo public.
-6. Deliveries (v2) and receivables (v3) done. Later: Snowflake target, failure alerts.
+6. Deliveries (v2), receivables (v3), and failure alerts done. Later: Snowflake target.
