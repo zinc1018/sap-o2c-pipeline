@@ -246,3 +246,7 @@ cd dbt && uv run dbt build   # dbt models and tests
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. ✅ Deliveries (v2) and receivables (v3)
 7. ✅ Snowflake target: built, not verified against a live account (see above).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
