@@ -4,8 +4,8 @@ An end-to-end analytics pipeline over SAP-style order-to-cash data. A Python gen
 simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt models
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
-> **Status:** milestone 1 (generator and loader) is done. dbt models, marts, Dagster
-> orchestration, and CI are in progress. See [Roadmap](#roadmap).
+> **Status:** the generator, loader, and dbt staging layer are done, and CI runs the whole
+> pipeline on every push. Marts, orchestration, and the rest are in progress. See [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -22,13 +22,19 @@ Requires Python 3.12 and [uv](https://docs.astral.sh/uv/). No admin rights neede
 uv sync                                  # install dependencies
 uv run generate --days 30                # simulate 30 business days of SAP extracts
 uv run load                              # load the extracts into DuckDB
+cd dbt && uv run dbt build && cd ..      # build staging models and run dbt tests
 uv run pytest                            # run the test suite
 ```
+
+dbt runs from the `dbt/` folder so its profile finds the warehouse at `data/warehouse.duckdb`.
+`dbt build` reports one known warning: 13 billing items reference sales order items that don't
+exist in the source data. The warning is intentional and documented in
+[`dbt/models/staging/schema.yml`](dbt/models/staging/schema.yml).
 
 Output goes to `data/` (git-ignored):
 
 - `data/extracts/<TABLE>/<TABLE>_<YYYYMMDD>.csv`: one CSV per table per simulated day
-- `data/warehouse.duckdb`: the DuckDB warehouse, with raw tables under the `raw` schema
+- `data/warehouse.duckdb`: the DuckDB warehouse, with raw tables under `raw` and staging views under `staging`
 
 You can inspect the result with the DuckDB CLI or Python:
 
@@ -36,7 +42,19 @@ You can inspect the result with the DuckDB CLI or Python:
 import duckdb
 con = duckdb.connect("data/warehouse.duckdb", read_only=True)
 con.sql("select count(*) from raw.VBAK").show()
+con.sql("select count(*) from staging.stg_sap__vbak").show()
 ```
+
+### Staging models
+
+`dbt/models/staging/` has one view per raw SAP table, named `stg_sap__<table>`. Each view:
+
+- renames SAP fields to readable names (`VBELN` → `sales_order_id`, `NETWR` → `net_value`)
+- casts text dates (`YYYYMMDD`) and amounts to proper types
+- turns empty values (`''`, and `00000000` for dates) into NULL
+- keeps the latest version of each business key, ordered by change date, then load time
+
+Raw keeps every version, so the staging views can always be rebuilt from history.
 
 ## Commands
 
@@ -100,6 +118,7 @@ The full design is in [`docs/design.md`](docs/design.md). The short version:
 ```
 generator/   simulated SAP system: schema, simulation, `generate` CLI
 loader/      CSV → DuckDB raw tables, `load` CLI
+dbt/         dbt project: staging models, macros, sources, tests
 tests/       pytest suite for the generator and loader
 docs/        design doc and milestone plans
 ```
@@ -107,15 +126,16 @@ docs/        design doc and milestone plans
 ## Development
 
 ```bash
-uv run pytest      # tests
-uv run ruff check  # lint (line length 100)
+uv run pytest           # Python tests
+uv run ruff check       # lint (line length 100)
+cd dbt && uv run dbt build   # dbt models and tests
 ```
 
 ## Roadmap
 
 1. ✅ Generator (v1 tables), loader, pytest tests
-2. dbt staging models and tests
+2. ✅ dbt staging models and tests
 3. Marts and an SCD2 snapshot
 4. Dagster orchestration and schedule
-5. CI on GitHub Actions: generate → load → `dbt build` on every push
+5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. Later: deliveries (v2), receivables (v3), a Snowflake target, failure alerts

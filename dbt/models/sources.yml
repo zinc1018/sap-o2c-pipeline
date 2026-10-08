@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: raw
+    description: SAP extract CSVs as loaded by the loader. Append-only; every version of every record is kept.
+    schema: raw
+    tables:
+      - name: KNA1
+        description: Customer master
+      - name: MARA
+        description: Material master
+      - name: MAKT
+        description: Material descriptions
+      - name: VBAK
+        description: Sales order header
+      - name: VBAP
+        description: Sales order item
+      - name: VBRK
+        description: Billing header
+      - name: VBRP
+        description: Billing item

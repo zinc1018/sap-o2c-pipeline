@@ -29,3 +29,7 @@ jobs:
           uv run load
           uv run generate --days 5
           uv run load
+
+      - name: Build dbt models and tests
+        working-directory: dbt
+        run: uv run dbt build
