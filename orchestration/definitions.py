@@ -102,6 +102,7 @@ daily_schedule = dg.ScheduleDefinition(
     job=daily_pipeline,
     cron_schedule="0 6 * * *",
     description="Simulate one more business day, load it, and rebuild the dbt models.",
+    default_status=dg.DefaultScheduleStatus.RUNNING,
 )
 
 def _root_cause(error) -> str:
@@ -143,5 +144,11 @@ defs = dg.Definitions(
     assets=[sap_extracts, raw_tables, sap_dbt_assets],
     schedules=[daily_schedule],
     sensors=[pipeline_failure_alert],
-    resources={"dbt": DbtCliResource(project_dir=dbt_project)},
+    # Use the dbt installed alongside this Python, so it works without an activated venv.
+    resources={
+        "dbt": DbtCliResource(
+            project_dir=dbt_project,
+            dbt_executable=str(Path(sys.executable).parent / "dbt"),
+        )
+    },
 )
