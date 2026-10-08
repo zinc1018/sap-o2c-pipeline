@@ -16,6 +16,7 @@ pipeline = "orchestration.run:main"
 
 [dependency-groups]
 dev = [
+    "dagster-webserver>=1.13.25",
     "dbt-duckdb>=1.11.0",
     "pytest",
     "ruff",

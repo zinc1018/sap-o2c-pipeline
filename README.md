@@ -98,7 +98,8 @@ Dagster runs the pipeline as assets, one for each stage:
 | dbt models | Runs `dbt build` for staging, marts, seeds, and tests, one asset per model. |
 
 The daily schedule (`daily_schedule`, 06:00) adds one simulated business day, loads it, and
-rebuilds the dbt models. Each run adds new days after the last one, and loading is idempotent:
+rebuilds the dbt models. The schedule is on by default when `dagster dev` runs; turn it off in the UI.
+Each run adds new days after the last one, and loading is idempotent:
 already-loaded files are skipped.
 
 ```bash
