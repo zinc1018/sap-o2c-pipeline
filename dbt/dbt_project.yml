@@ -1,0 +1,17 @@
+name: sap_o2c
+version: "0.1.0"
+config-version: 2
+
+profile: sap_o2c
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  sap_o2c:
+    staging:
+      +materialized: view
+      +schema: staging

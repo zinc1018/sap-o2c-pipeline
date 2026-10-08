@@ -10,7 +10,11 @@ generate = "generator.cli:main"
 load = "loader.cli:main"
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = [
+    "dbt-duckdb>=1.11.0",
+    "pytest",
+    "ruff",
+]
 
 [build-system]
 requires = ["hatchling"]
