@@ -3,3 +3,7 @@ data/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml

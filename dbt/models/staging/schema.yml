@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: stg_sap__kna1
+    description: Customers, latest version per customer.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: stg_sap__mara
+    description: Materials, latest version per material.
+    columns:
+      - name: material_id
+        tests: [unique, not_null]
+
+  - name: stg_sap__makt
+    description: Material descriptions, latest version per material and language.
+    columns:
+      - name: material_id
+        tests: [not_null]
+      - name: language_key
+        tests: [not_null]
+
+  - name: stg_sap__vbak
+    description: Sales order headers, latest version per order.
+    columns:
+      - name: sales_order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__kna1')
+                field: customer_id
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD', 'CAD']
+      - name: net_value
+        tests: [not_null]
+
+  - name: stg_sap__vbap
+    description: Sales order items, latest version per item.
+    columns:
+      - name: sales_order_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__vbak')
+                field: sales_order_id
+      - name: item_no
+        tests: [not_null]
+      - name: material_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__mara')
+                field: material_id
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD', 'CAD']
+
+  - name: stg_sap__vbrk
+    description: Billing headers, latest version per billing document. Cancelled invoices are flagged, not removed.
+    columns:
+      - name: billing_id
+        tests: [unique, not_null]
+      - name: payer_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__kna1')
+                field: customer_id
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['USD', 'CAD']
+      - name: is_cancelled
+        tests: [not_null]
+
+  - name: stg_sap__vbrp
+    description: Billing items, latest version per billing item.
+    columns:
+      - name: billing_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__vbrk')
+                field: billing_id
+      - name: item_no
+        tests: [not_null]
+      - name: sales_order_id
+        tests:
+          - not_null
+          # Known source issue: some billing items reference order items that
+          # don't exist. Warn rather than fail; fct_billing_items will flag them.
+          - relationships:
+              arguments:
+                to: ref('stg_sap__vbap')
+                field: sales_order_id
+              config:
+                severity: warn
