@@ -128,4 +128,4 @@ Run: `uv sync`, then `uv run dagster dev` (UI) or `uv run pipeline` (one headles
 3. Marts with SCD2 customer history.
 4. Dagster orchestration and schedule.
 5. CI and README; make the repo public.
-6. Later: deliveries (v2), receivables (v3), Snowflake target, failure alerts.
+6. Deliveries (v2) and receivables (v3) done. Later: Snowflake target, failure alerts.

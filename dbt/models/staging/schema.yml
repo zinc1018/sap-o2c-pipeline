@@ -109,3 +109,44 @@ models:
                 field: sales_order_id
               config:
                 severity: warn
+
+  - name: stg_sap__likp
+    description: Delivery headers, latest version per delivery.
+    columns:
+      - name: delivery_id
+        tests: [unique, not_null]
+      - name: delivery_date
+        tests: [not_null]
+
+  - name: stg_sap__lips
+    description: Delivery items, latest version per delivery item.
+    columns:
+      - name: delivery_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sap__likp')
+                field: delivery_id
+      - name: item_no
+        tests: [not_null]
+      - name: shipped_qty
+        tests: [not_null]
+
+  - name: stg_sap__bsid
+    description: Open receivable items as posted, one row per accounting document item.
+    columns:
+      - name: accounting_doc_id
+        tests: [not_null]
+      - name: billing_id
+        tests: [not_null]
+      - name: amount
+        tests: [not_null]
+
+  - name: stg_sap__bsad
+    description: Cleared receivable items, one row per accounting document item.
+    columns:
+      - name: accounting_doc_id
+        tests: [not_null]
+      - name: cleared_on
+        tests: [not_null]
