@@ -20,6 +20,10 @@ dev = [
     "pytest",
     "ruff",
 ]
+snowflake = [
+    "dbt-snowflake>=1.12.1",
+    "snowflake-connector-python>=4.8.0",
+]
 
 [build-system]
 requires = ["hatchling"]

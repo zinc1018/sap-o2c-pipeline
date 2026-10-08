@@ -3,6 +3,7 @@
 Run the UI with `uv run dagster dev -m orchestration.definitions`.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -13,13 +14,22 @@ from pydantic import Field
 
 from generator.cli import main as generate_main
 from generator.schema import TABLES
-from loader.load import LoadError, load_extracts
+from loader.checks import LoadError
+from loader.load import load_extracts
+from loader.snowflake import connect_from_env, load_extracts_snowflake
 from orchestration.alerts import alert_settings, build_alert, send_alert
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 EXTRACTS_DIR = DATA_DIR / "extracts"
 WAREHOUSE = DATA_DIR / "warehouse.duckdb"
+
+# SAP_TARGET picks the warehouse: "duckdb" (default) or "snowflake" (needs SNOWFLAKE_* env vars).
+# Each maps to the dbt target of the same role.
+TARGETS = {"duckdb": "dev", "snowflake": "snowflake"}
+SAP_TARGET = os.environ.get("SAP_TARGET", "duckdb")
+if SAP_TARGET not in TARGETS:
+    raise ValueError(f"SAP_TARGET must be one of {sorted(TARGETS)}, got {SAP_TARGET!r}")
 
 # dbt connects to the warehouse while parsing, before the first run creates it.
 DATA_DIR.mkdir(exist_ok=True)
@@ -59,7 +69,14 @@ def sap_extracts(context: dg.AssetExecutionContext, config: GenerateConfig) -> N
 def raw_tables(context: dg.AssetExecutionContext):
     """Load every extract into raw. One asset per raw table, which dbt sources point at."""
     try:
-        result = load_extracts(EXTRACTS_DIR, WAREHOUSE)
+        if SAP_TARGET == "snowflake":
+            connection = connect_from_env()
+            try:
+                result = load_extracts_snowflake(EXTRACTS_DIR, connection)
+            finally:
+                connection.close()
+        else:
+            result = load_extracts(EXTRACTS_DIR, WAREHOUSE)
     except LoadError as e:
         raise dg.Failure(str(e)) from e
     context.log.info(
@@ -72,7 +89,7 @@ def raw_tables(context: dg.AssetExecutionContext):
 
 @dbt_assets(manifest=dbt_project.manifest_path)
 def sap_dbt_assets(context: dg.AssetExecutionContext, dbt: DbtCliResource):
-    yield from dbt.cli(["build"], context=context).stream()
+    yield from dbt.cli(["build", "--target", TARGETS[SAP_TARGET]], context=context).stream()
 
 
 daily_pipeline = dg.define_asset_job(
