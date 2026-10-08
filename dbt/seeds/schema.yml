@@ -1,0 +1,12 @@
+version: 2
+
+seeds:
+  - name: exchange_rates
+    description: >
+      Reporting rates to USD. Illustrative fixed rates for this portfolio project, not
+      market data. Used only to produce the net_value_usd columns in the marts.
+    columns:
+      - name: currency
+        tests: [unique, not_null]
+      - name: rate_to_usd
+        tests: [not_null]
