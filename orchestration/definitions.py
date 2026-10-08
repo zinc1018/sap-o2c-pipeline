@@ -9,10 +9,12 @@ from pathlib import Path
 
 import dagster as dg
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
+from pydantic import Field
 
 from generator.cli import main as generate_main
 from generator.schema import TABLES
 from loader.load import LoadError, load_extracts
+from orchestration.alerts import alert_settings, build_alert, send_alert
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -32,7 +34,7 @@ dbt_project = DbtProject(project_dir=ROOT / "dbt", profiles_dir=ROOT / "dbt")
 class GenerateConfig(dg.Config):
     """How many simulated business days to add to the extracts on each run."""
 
-    days: int = 1
+    days: int = Field(default=1, ge=1)
 
 
 @dg.asset(
@@ -85,8 +87,44 @@ daily_schedule = dg.ScheduleDefinition(
     description="Simulate one more business day, load it, and rebuild the dbt models.",
 )
 
+def _root_cause(error) -> str:
+    """The original exception message. Retries wrap it in "Exceeded max_retries"."""
+    return (error.cause or error).message.strip()
+
+
+@dg.run_failure_sensor(
+    monitored_jobs=[daily_pipeline],
+    default_status=dg.DefaultSensorStatus.RUNNING,
+)
+def pipeline_failure_alert(context: dg.RunFailureSensorContext):
+    """Email the failed steps and error whenever a daily run fails."""
+    step_failures = [
+        e for e in context.get_step_failure_events() if e.step_key and e.event_specific_data.error
+    ]
+    settings = alert_settings()
+    if settings is None:
+        context.log.warning(f"run {context.dagster_run.run_id} failed; alerts not configured")
+        return
+
+    failed_steps = [e.step_key for e in step_failures]
+    error = "\n\n".join(
+        f"{e.step_key}: {_root_cause(e.event_specific_data.error)}" for e in step_failures
+    ) or context.failure_event.message or "no error message"
+    message = build_alert(
+        job_name=context.dagster_run.job_name,
+        run_id=context.dagster_run.run_id,
+        failed_steps=failed_steps,
+        error=error,
+        sender=settings["sender"],
+        recipient=settings["recipient"],
+    )
+    send_alert(message, settings)
+    context.log.info(f"sent failure alert to {settings['recipient']}")
+
+
 defs = dg.Definitions(
     assets=[sap_extracts, raw_tables, sap_dbt_assets],
     schedules=[daily_schedule],
+    sensors=[pipeline_failure_alert],
     resources={"dbt": DbtCliResource(project_dir=dbt_project)},
 )
