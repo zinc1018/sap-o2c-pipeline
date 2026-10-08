@@ -4,8 +4,8 @@ An end-to-end analytics pipeline over SAP-style order-to-cash data. A Python gen
 simulates an SAP system's daily extracts, a loader lands them in DuckDB, and dbt models
 them into a star schema. The whole thing runs locally with no cloud accounts or Docker.
 
-> **Status:** the generator, loader, dbt staging layer, and marts are done, and CI runs the whole
-> pipeline on every push. Orchestration and the rest are in progress. See [Roadmap](#roadmap).
+> **Status:** the generator, loader, dbt staging and marts, and Dagster orchestration are done,
+> and CI runs the whole pipeline on every push. Later work is in the [Roadmap](#roadmap).
 
 ## Why this exists
 
@@ -25,6 +25,9 @@ uv run load                              # load the extracts into DuckDB
 cd dbt && uv run dbt build && cd ..      # build staging models and run dbt tests
 uv run pytest                            # run the test suite
 ```
+
+To run generate, load, and dbt build as one step, use `uv run pipeline --days 30`. It shows each
+step's progress and stops at the first failure.
 
 dbt runs from the `dbt/` folder so its profile finds the warehouse at `data/warehouse.duckdb`.
 `dbt build` reports one known warning: some billing items reference sales order items that don't
@@ -79,6 +82,28 @@ quantity never exceeds ordered quantity, and rejected order items are never bill
 - keeps the latest version of each business key, ordered by change date, then load time
 
 Raw keeps every version, so the staging views can always be rebuilt from history.
+
+## Orchestration
+
+Dagster runs the pipeline as assets, one for each stage:
+
+| Asset | What it does |
+|---|---|
+| `sap_extracts` | Simulates days of SAP extracts (`generate`). Retries twice on failure. |
+| `raw_tables` | Loads the extracts into raw, producing one asset per raw table. Retries twice. |
+| dbt models | Runs `dbt build` for staging, marts, seeds, and tests, one asset per model. |
+
+The daily schedule (`daily_schedule`, 06:00) adds one simulated business day, loads it, and
+rebuilds the dbt models. Each run adds new days after the last one, and loading is idempotent:
+already-loaded files are skipped.
+
+```bash
+uv run dagster dev -m orchestration.definitions   # UI at http://localhost:3000
+uv run pipeline --days 30                          # one headless run, no UI
+```
+
+Not built yet: per-day backfills. The generator only adds days after the last one, so there is
+no way yet to fill a past date range.
 
 ## Commands
 
@@ -142,6 +167,7 @@ The full design is in [`docs/design.md`](docs/design.md). The short version:
 ```
 generator/   simulated SAP system: schema, simulation, `generate` CLI
 loader/      CSV → DuckDB raw tables, `load` CLI
+orchestration/  Dagster assets, daily schedule, `pipeline` CLI
 dbt/         dbt project: staging and marts models, seeds, macros, tests
 tests/       pytest suite for the generator and loader
 docs/        design doc and milestone plans
@@ -160,6 +186,6 @@ cd dbt && uv run dbt build   # dbt models and tests
 1. ✅ Generator (v1 tables), loader, pytest tests
 2. ✅ dbt staging models and tests
 3. ✅ Marts: star schema with customer SCD2 history
-4. Dagster orchestration and schedule
+4. ✅ Dagster orchestration with a daily schedule (per-day backfills not built)
 5. ✅ CI on GitHub Actions: lint, tests, generate → load → `dbt build` on every push
 6. Later: deliveries (v2), receivables (v3), a Snowflake target, failure alerts
