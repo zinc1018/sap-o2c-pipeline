@@ -1,9 +1,21 @@
-# Run dbt from the dbt/ folder (`cd dbt && uv run dbt build`), so the path below
-# resolves to the warehouse the loader writes to.
+# Run dbt from the dbt/ folder (`cd dbt && uv run dbt build`).
+# dev: local DuckDB warehouse written by the loader (default, no account needed).
+# snowflake: a Snowflake database. Set the SNOWFLAKE_* variables first; see the README.
 sap_o2c:
   target: dev
   outputs:
     dev:
       type: duckdb
       path: "../data/warehouse.duckdb"
+      threads: 4
+
+    snowflake:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', '') or none }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      schema: public
       threads: 4

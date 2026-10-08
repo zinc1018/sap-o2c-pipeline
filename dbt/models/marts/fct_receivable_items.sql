@@ -49,7 +49,7 @@ select
     cl.clearing_doc_id,
     cl.cleared_on is not null as is_cleared,
     case when cl.cleared_on is null then 'open' else 'cleared' end as status,
-    cl.cleared_on - i.posting_date as days_to_clear
+    {{ days_between('cl.cleared_on', 'i.posting_date') }} as days_to_clear
 from items as i
 left join cleared as cl
     on cl.company_code = i.company_code
